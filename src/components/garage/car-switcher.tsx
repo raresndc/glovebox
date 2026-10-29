@@ -49,7 +49,7 @@ export function AddCarForm({ onDone }: { onDone?: () => void }) {
         label="Number plate"
         value={plate}
         onChangeText={setPlate}
-        placeholder="e.g. B 123 ABC"
+        placeholder="e.g. CJ 12 ABC"
         autoCapitalize="characters"
         autoCorrect={false}
       />

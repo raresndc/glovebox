@@ -73,8 +73,17 @@ export function newId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * Romanian plate layouts: county letters, digits, then letters.
+ * L NN LLL, L NNN LLL or LL NN LLL (e.g. B 12 ABC, B 123 ABC, CJ 12 ABC).
+ */
+export const PLATE_PATTERN = /^(?:[A-Z] \d{2,3}|[A-Z]{2} \d{2}) [A-Z]{3}$/;
+
+/** Uppercases and puts single spaces between the groups, so "cj12abc" and "CJ-12-ABC" become "CJ 12 ABC". */
 export function normalizePlate(plate: string) {
-  return plate.trim().toUpperCase().replace(/\s+/g, ' ');
+  const compact = plate.toUpperCase().replace(/[\s-]+/g, '');
+  const groups = /^([A-Z]+)(\d+)([A-Z]+)$/.exec(compact);
+  return groups ? groups.slice(1).join(' ') : plate.trim().toUpperCase().replace(/\s+/g, ' ');
 }
 
 export function useGarage() {
@@ -92,6 +101,9 @@ export const garageActions = {
   /** Returns an error message if the plate is already taken. */
   addCar(car: Omit<Car, 'id'>): string | null {
     const plate = normalizePlate(car.plate);
+    if (!PLATE_PATTERN.test(plate)) {
+      return `${plate} isn't a valid Romanian plate. Use a format like B 123 ABC or CJ 12 ABC.`;
+    }
     if (getSnapshot().cars.some((c) => c.plate === plate)) {
       return `${plate} is already in your garage.`;
     }
