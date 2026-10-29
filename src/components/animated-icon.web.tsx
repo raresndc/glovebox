@@ -2,7 +2,6 @@ import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Keyframe, Easing } from 'react-native-reanimated';
 
-import classes from './animated-icon.module.css';
 const DURATION = 300;
 
 export function AnimatedSplashOverlay() {
@@ -19,22 +18,6 @@ const keyframe = new Keyframe({
   },
   100: {
     transform: [{ scale: 1 }],
-    easing: Easing.elastic(1.2),
-  },
-});
-
-const logoKeyframe = new Keyframe({
-  0: {
-    opacity: 0,
-  },
-  60: {
-    transform: [{ scale: 1.2 }],
-    opacity: 0,
-    easing: Easing.elastic(1.2),
-  },
-  100: {
-    transform: [{ scale: 1 }],
-    opacity: 1,
     easing: Easing.elastic(1.2),
   },
 });
@@ -62,11 +45,7 @@ export function AnimatedIcon() {
       </Animated.View>
 
       <Animated.View style={styles.background} entering={keyframe.duration(DURATION)}>
-        <div className={classes.expoLogoBackground} />
-      </Animated.View>
-
-      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+        <Image style={styles.icon} source={require('@/assets/images/icon.png')} />
       </Animated.View>
     </View>
   );
@@ -80,10 +59,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 128 / 2 + 138,
   },
-  imageContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   glow: {
     width: 201,
     height: 201,
@@ -95,12 +70,13 @@ const styles = StyleSheet.create({
     width: 128,
     height: 128,
   },
-  image: {
-    position: 'absolute',
-    width: 76,
-    height: 71,
+  icon: {
+    width: 128,
+    height: 128,
   },
   background: {
+    borderRadius: 40,
+    overflow: 'hidden',
     width: 128,
     height: 128,
     position: 'absolute',

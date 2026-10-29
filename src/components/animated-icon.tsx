@@ -33,7 +33,13 @@ export function AnimatedSplashOverlay() {
     },
   });
 
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  const image = (
+    <Image
+      style={styles.image}
+      contentFit="contain"
+      source={require('@/assets/images/splash-icon.png')}
+    />
+  );
 
   return animate ? (
     <Animated.View
@@ -69,23 +75,6 @@ const keyframe = new Keyframe({
   },
 });
 
-const logoKeyframe = new Keyframe({
-  0: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-  },
-  40: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-    easing: Easing.elastic(0.7),
-  },
-  100: {
-    opacity: 1,
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(0.7),
-  },
-});
-
 const glowKeyframe = new Keyframe({
   0: {
     transform: [{ rotateZ: '0deg' }],
@@ -102,19 +91,14 @@ export function AnimatedIcon() {
         <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
       </Animated.View>
 
-      <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
-      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+      <Animated.View entering={keyframe.duration(DURATION)} style={styles.background}>
+        <Image style={styles.icon} source={require('@/assets/images/icon.png')} />
       </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  imageContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   glow: {
     width: 201,
     height: 201,
@@ -127,20 +111,25 @@ const styles = StyleSheet.create({
     height: 128,
     zIndex: 100,
   },
+  // matches the splash screen's imageWidth in app.json (splash-icon.png is 597x648)
   image: {
-    width: 76,
-    height: 71,
+    width: 200,
+    height: 217,
+  },
+  icon: {
+    width: 128,
+    height: 128,
   },
   background: {
     borderRadius: 40,
-    experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
+    overflow: 'hidden',
     width: 128,
     height: 128,
     position: 'absolute',
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    backgroundColor: '#1B2A4E',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
