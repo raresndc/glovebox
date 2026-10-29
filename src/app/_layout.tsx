@@ -4,8 +4,10 @@ import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import { configureNotifications } from '@/lib/reminders';
 
 SplashScreen.preventAutoHideAsync();
+configureNotifications();
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
