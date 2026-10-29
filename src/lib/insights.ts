@@ -4,7 +4,7 @@ import { daysUntil, parseDate } from '@/lib/dates';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** Kinds the dashboard warns about when there's no valid one on file. */
-const ESSENTIAL_KINDS: DocumentKind[] = ['insurance', 'vignette'];
+const ESSENTIAL_KINDS: DocumentKind[] = ['insurance', 'vignette', 'inspection', 'registration'];
 
 export type Expiry = {
   document: CarDocument;
@@ -31,12 +31,16 @@ export function getExpiries(documents: CarDocument[]): Expiry[] {
     .sort((a, b) => a.days - b.days);
 }
 
-/** Essential documents (insurance, vignette) with no currently valid copy. */
+/**
+ * Essential documents with no currently valid copy. A document without an expiry date
+ * (common for the registration) counts as valid.
+ */
 export function getMissingEssentials(documents: CarDocument[]) {
   return ESSENTIAL_KINDS.filter(
     (kind) =>
       !documents.some((d) => {
-        if (d.kind !== kind || !d.expiryDate) return false;
+        if (d.kind !== kind) return false;
+        if (!d.expiryDate) return true;
         const days = daysUntil(d.expiryDate);
         return days !== null && days >= 0;
       }),
