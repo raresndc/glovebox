@@ -6,11 +6,17 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { configureNotifications } from '@/lib/reminders';
 
+import { syncFromSupabase } from '@/lib/garage';
+import { useEffect } from 'react';
+
 SplashScreen.preventAutoHideAsync();
 configureNotifications();
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  useEffect(() => {
+    syncFromSupabase();
+  }, []);
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
