@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { AttachmentPicker } from '@/components/ui/attachments';
 import {
   Chip,
@@ -13,12 +12,21 @@ import {
   PrimaryButton,
   formStyles,
 } from '@/components/ui/form';
-import { Spacing } from '@/constants/theme';
+import { Icons } from '@/components/ui/icon';
+import { Surface } from '@/components/ui/surface';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { deleteAttachment, type Attachment } from '@/lib/attachments';
 import { parseDate, today } from '@/lib/dates';
 import { newId, type Car } from '@/lib/garage';
 
-import { SERVICE_ITEMS, parseAmount, type Intervention, type InterventionKind } from './types';
+import {
+  INTERVENTION_KINDS,
+  SERVICE_ITEMS,
+  parseAmount,
+  type Intervention,
+  type InterventionKind,
+} from './types';
 
 type Props = {
   car: Car;
@@ -26,6 +34,7 @@ type Props = {
 };
 
 export function InterventionForm({ car, onAdd }: Props) {
+  const theme = useTheme();
   const [kind, setKind] = useState<InterventionKind>('service');
   const [title, setTitle] = useState('');
   const [serviceItems, setServiceItems] = useState<string[]>([]);
@@ -102,10 +111,18 @@ export function InterventionForm({ car, onAdd }: Props) {
   };
 
   return (
-    <ThemedView type="backgroundElement" style={formStyles.card}>
-      <View style={styles.segmented}>
-        <Chip label="Service" selected={kind === 'service'} onPress={() => setKind('service')} />
-        <Chip label="Repair" selected={kind === 'repair'} onPress={() => setKind('repair')} />
+    <Surface>
+      <View style={[styles.segmented, { backgroundColor: theme.background }]}>
+        {(Object.keys(INTERVENTION_KINDS) as InterventionKind[]).map((k) => (
+          <View key={k} style={formStyles.flex}>
+            <Chip
+              label={INTERVENTION_KINDS[k].label}
+              icon={INTERVENTION_KINDS[k].icon}
+              selected={kind === k}
+              onPress={() => setKind(k)}
+            />
+          </View>
+        ))}
       </View>
 
       <Field
@@ -117,7 +134,9 @@ export function InterventionForm({ car, onAdd }: Props) {
 
       {kind === 'service' ? (
         <View style={formStyles.field}>
-          <ThemedText type="smallBold">What was done</ThemedText>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            What was done
+          </ThemedText>
           <View style={formStyles.chips}>
             {SERVICE_ITEMS.map((item) => (
               <Chip
@@ -131,20 +150,24 @@ export function InterventionForm({ car, onAdd }: Props) {
         </View>
       ) : (
         <View style={formStyles.field}>
-          <ThemedText type="smallBold">Parts replaced</ThemedText>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            Parts replaced
+          </ThemedText>
           {parts.map((part, index) => (
-            <ThemedView key={`${part}-${index}`} type="backgroundSelected" style={styles.partRow}>
+            <View
+              key={`${part}-${index}`}
+              style={[styles.partRow, { backgroundColor: theme.backgroundSelected }]}>
               <ThemedText type="small" style={formStyles.flex}>
                 {part}
               </ThemedText>
               <IconButton
-                name={{ ios: 'xmark', android: 'close', web: 'close' }}
+                name={Icons.close}
                 label={`Remove ${part}`}
                 onPress={() => setParts((current) => current.filter((_, i) => i !== index))}
               />
-            </ThemedView>
+            </View>
           ))}
-          <View style={formStyles.row}>
+          <View style={styles.partInput}>
             <Input
               style={formStyles.flex}
               value={partDraft}
@@ -154,7 +177,7 @@ export function InterventionForm({ car, onAdd }: Props) {
               onSubmitEditing={addPart}
               submitBehavior="submit"
             />
-            <Chip label="Add" selected={false} onPress={addPart} />
+            <Chip label="Add" icon={Icons.plus} selected={false} onPress={addPart} />
           </View>
         </View>
       )}
@@ -165,8 +188,11 @@ export function InterventionForm({ car, onAdd }: Props) {
           style={formStyles.flex}
           value={date}
           onChangeText={setDate}
-          placeholder="YYYY-MM-DD"
-        />
+          placeholder="YYYY-MM-DD">
+          <View style={formStyles.chips}>
+            <Chip small label="Today" selected={date === today()} onPress={() => setDate(today())} />
+          </View>
+        </Field>
         <Field
           label="Mileage (km)"
           style={formStyles.flex}
@@ -204,22 +230,30 @@ export function InterventionForm({ car, onAdd }: Props) {
       />
 
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton label="Add intervention" onPress={submit} />
-    </ThemedView>
+      <PrimaryButton label="Save intervention" icon={Icons.check} onPress={submit} />
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   segmented: {
     flexDirection: 'row',
-    gap: Spacing.two,
+    gap: Spacing.one,
+    padding: Spacing.one,
+    borderRadius: Radius.pill,
   },
   partRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.three,
+    paddingLeft: Spacing.three,
+    paddingRight: Spacing.one + Spacing.half,
+    paddingVertical: Spacing.one + Spacing.half,
+    borderRadius: Radius.medium,
+  },
+  partInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
 });

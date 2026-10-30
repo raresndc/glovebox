@@ -1,12 +1,15 @@
+import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { AttachmentList } from '@/components/ui/attachments';
-import { IconButton } from '@/components/ui/form';
-import { Spacing } from '@/constants/theme';
+import { DeleteButton } from '@/components/ui/form';
+import { IconBadge, Icons } from '@/components/ui/icon';
+import { Surface } from '@/components/ui/surface';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
-import { formatCost, type Intervention } from './types';
+import { INTERVENTION_KINDS, formatCost, type Intervention } from './types';
 
 type Props = {
   intervention: Intervention;
@@ -14,38 +17,53 @@ type Props = {
 };
 
 export function InterventionCard({ intervention, onDelete }: Props) {
+  const theme = useTheme();
   const { kind, title, items, date, mileage, cost, notes, bills } = intervention;
-  const meta = [date, mileage !== undefined && `${mileage.toLocaleString()} km`]
-    .filter(Boolean)
-    .join(' · ');
+  const kindInfo = INTERVENTION_KINDS[kind];
   // For a service the title is often just the joined items; don't repeat them.
   const showItems = items.length > 0 && items.join(', ') !== title;
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
+    <Surface style={styles.card}>
       <View style={styles.header}>
+        <IconBadge name={kindInfo.icon} color={kindInfo.accent} size={44} />
         <View style={styles.headerText}>
-          <ThemedText type="code" themeColor="textSecondary" style={styles.kind}>
-            {kind === 'service' ? 'Service' : 'Repair'}
+          <ThemedText type="small" themeColor="textSecondary" style={styles.kind}>
+            {kindInfo.label}
           </ThemedText>
-          <ThemedText type="default">{title}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {meta}
+          <ThemedText type="default" style={styles.title}>
+            {title}
           </ThemedText>
         </View>
-        <ThemedText type="smallBold">{formatCost(cost)}</ThemedText>
-        <IconButton
-          name={{ ios: 'trash', android: 'delete', web: 'delete' }}
-          label={`Delete ${title}`}
-          onPress={onDelete}
-        />
+        <DeleteButton label={`Delete ${title}`} onConfirm={onDelete} />
+      </View>
+
+      <View style={[styles.footer, { backgroundColor: theme.background }]}>
+        <View style={styles.meta}>
+          <SymbolView name={Icons.calendar} tintColor={theme.textSecondary} size={14} />
+          <ThemedText type="small">{date}</ThemedText>
+        </View>
+        {mileage !== undefined && (
+          <View style={styles.meta}>
+            <SymbolView name={Icons.gauge} tintColor={theme.textSecondary} size={14} />
+            <ThemedText type="small">{mileage.toLocaleString()} km</ThemedText>
+          </View>
+        )}
+        <ThemedText type="smallBold" style={styles.cost}>
+          {formatCost(cost)}
+        </ThemedText>
       </View>
 
       {showItems && (
-        <ThemedText type="small">
-          {kind === 'repair' ? 'Parts: ' : ''}
-          {items.join(', ')}
-        </ThemedText>
+        <View style={styles.items}>
+          {items.map((item, index) => (
+            <View
+              key={`${item}-${index}`}
+              style={[styles.item, { backgroundColor: theme.backgroundSelected }]}>
+              <ThemedText type="small">{item}</ThemedText>
+            </View>
+          ))}
+        </View>
       )}
       {notes && (
         <ThemedText type="small" themeColor="textSecondary">
@@ -53,26 +71,57 @@ export function InterventionCard({ intervention, onDelete }: Props) {
         </ThemedText>
       )}
       <AttachmentList attachments={bills} />
-    </ThemedView>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Spacing.four,
+    gap: Spacing.three,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing.three,
   },
   headerText: {
     flex: 1,
-    gap: Spacing.half,
   },
   kind: {
     textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  title: {
+    fontWeight: 700,
+  },
+  footer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.medium,
+  },
+  meta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one + Spacing.half,
+  },
+  cost: {
+    marginLeft: 'auto',
+    fontSize: 16,
+  },
+  items: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one + Spacing.half,
+  },
+  item: {
+    paddingHorizontal: Spacing.two + Spacing.one,
+    paddingVertical: Spacing.half,
+    borderRadius: Radius.pill,
   },
 });

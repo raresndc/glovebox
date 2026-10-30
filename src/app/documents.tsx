@@ -1,27 +1,29 @@
-import { Platform, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCallback, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { DocumentCard } from '@/components/documents/document-card';
 import { DocumentForm } from '@/components/documents/document-form';
+import { DOCUMENT_KINDS, EXPIRING_SOON_DAYS } from '@/components/documents/types';
 import { CarSwitcher } from '@/components/garage/car-switcher';
-import { EXPIRING_SOON_DAYS } from '@/components/documents/types';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { PrimaryButton, SecondaryButton } from '@/components/ui/form';
+import { Icons } from '@/components/ui/icon';
+import { Appear } from '@/components/ui/motion';
+import { Screen } from '@/components/ui/screen';
+import { Banner, EmptyState } from '@/components/ui/surface';
+import { Spacing } from '@/constants/theme';
 import { daysUntil } from '@/lib/dates';
 import { garageActions, useGarage } from '@/lib/garage';
 
+type Notice = { tone: 'success' | 'info'; text: string };
+
 export default function DocumentsScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
   const garage = useGarage();
   const car = garage.activeCar;
   const documents = garage.documents.filter((d) => d.carId === car?.id);
+  const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const dismissNotice = useCallback(() => setNotice(null), []);
 
   // Soonest expiry first; documents without an expiry date go last.
   const sorted = [...documents].sort((a, b) =>
@@ -32,97 +34,94 @@ export default function DocumentsScreen() {
     return days !== null && days <= EXPIRING_SOON_DAYS;
   }).length;
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
-
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      keyboardShouldPersistTaps="handled"
-      automaticallyAdjustKeyboardInsets
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Documents</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Keep your car papers in one place and get reminded before they expire.
-          </ThemedText>
-        </ThemedView>
+    <Screen
+      eyebrow={car?.plate}
+      title="Documents"
+      subtitle="Keep your car papers in one place and get reminded before they expire.">
+      <CarSwitcher />
 
-        <CarSwitcher />
+      {notice && <Banner tone={notice.tone} text={notice.text} onDismiss={dismissNotice} />}
 
-        {car && (
-          <>
-            <DocumentForm key={car.id} car={car} onAdd={garageActions.addDocument} />
+      {car && (
+        <>
+          {adding ? (
+            <Appear>
+              <View style={styles.formHeader}>
+                <ThemedText type="smallBold" style={styles.flex}>
+                  New document for {car.plate}
+                </ThemedText>
+                <SecondaryButton label="Cancel" icon={Icons.close} onPress={() => setAdding(false)} />
+              </View>
+              <DocumentForm
+                key={car.id}
+                car={car}
+                onAdd={(document, message) => {
+                  garageActions.addDocument(document);
+                  setAdding(false);
+                  setNotice(
+                    message
+                      ? { tone: 'info', text: message }
+                      : {
+                          tone: 'success',
+                          text: `${DOCUMENT_KINDS[document.kind].label} saved for ${car.plate}.`,
+                        },
+                  );
+                }}
+              />
+            </Appear>
+          ) : (
+            <PrimaryButton label="Add document" icon={Icons.plus} onPress={() => setAdding(true)} />
+          )}
 
-            <ThemedView style={styles.listHeader}>
+          {documents.length > 0 && (
+            <View style={styles.listHeader}>
               <ThemedText type="smallBold">Your documents ({documents.length})</ThemedText>
               {needsAttention > 0 && (
                 <ThemedText type="smallBold" themeColor="textSecondary">
                   {needsAttention} expiring within {EXPIRING_SOON_DAYS} days
                 </ThemedText>
               )}
-            </ThemedView>
+            </View>
+          )}
 
-            {sorted.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                No documents for {car.plate} yet. Add the insurance or vignette above.
-              </ThemedText>
-            ) : (
-              sorted.map((document) => (
-                <DocumentCard
-                  key={document.id}
-                  document={document}
-                  onDelete={() => garageActions.removeDocument(document)}
+          {sorted.length === 0
+            ? !adding && (
+                <EmptyState
+                  icon={Icons.folder}
+                  title="No documents yet"
+                  text={`Add the insurance and vignette for ${car.plate} to see when they expire and get reminders.`}
                 />
-              ))
-            )}
-          </>
-        )}
-      </ThemedView>
-    </ScrollView>
+              )
+            : sorted.map((document, index) => (
+                <Appear key={document.id} index={index}>
+                  <DocumentCard
+                    document={document}
+                    onDelete={() => garageActions.removeDocument(document)}
+                  />
+                </Appear>
+              ))}
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
+  formHeader: {
     flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-    width: '100%',
+    alignItems: 'center',
     gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.three,
   },
-  titleContainer: {
-    gap: Spacing.two,
-    paddingVertical: Spacing.four,
+  flex: {
+    flex: 1,
   },
   listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: Spacing.two,
-    paddingTop: Spacing.three,
-  },
-  empty: {
-    textAlign: 'center',
-    paddingVertical: Spacing.four,
+    paddingTop: Spacing.two,
   },
 });

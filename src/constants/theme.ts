@@ -9,19 +9,41 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#0F172A',
+    background: '#F3F5FB',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#E8ECF5',
+    textSecondary: '#5B6475',
+    border: '#E2E7F0',
+    tint: '#4157E8',
+    /** Text and icons drawn on top of `tint`. */
+    onTint: '#FFFFFF',
+    danger: '#D93A3F',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#F1F5F9',
+    background: '#0A0F1E',
+    backgroundElement: '#161C2F',
+    backgroundSelected: '#232B44',
+    textSecondary: '#9AA4B8',
+    border: '#262F4A',
+    tint: '#8197FF',
+    onTint: '#0A0F1E',
+    danger: '#FF6B6F',
   },
+} as const;
+
+/** Brand gradients, from the navy of the app icon towards indigo. Same in both modes. */
+export const Gradients = {
+  hero: ['#1B2A4E', '#2C3F8F', '#5A4FCF'],
+  primary: ['#4157E8', '#6A4FD8'],
+} as const;
+
+export const Radius = {
+  small: 10,
+  medium: 16,
+  large: 24,
+  pill: 999,
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
@@ -62,4 +84,4 @@ export const Spacing = {
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+export const MaxContentWidth = 720;

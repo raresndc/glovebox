@@ -1,3 +1,4 @@
+import type { IconName } from '@/components/ui/icon';
 import type { Attachment } from '@/lib/attachments';
 
 export type InterventionKind = 'service' | 'repair';
@@ -16,6 +17,23 @@ export type Intervention = {
   notes?: string;
   /** Bills or invoices (PDF or photo). */
   bills: Attachment[];
+};
+
+/** Accents match the Services / Repairs series in the dashboard spending chart. */
+export const INTERVENTION_KINDS: Record<
+  InterventionKind,
+  { label: string; icon: IconName; accent: string }
+> = {
+  service: {
+    label: 'Service',
+    icon: { ios: 'drop.fill', android: 'water_drop', web: 'water_drop' },
+    accent: '#2A78D6',
+  },
+  repair: {
+    label: 'Repair',
+    icon: { ios: 'wrench.and.screwdriver.fill', android: 'build', web: 'build' },
+    accent: '#EB6834',
+  },
 };
 
 export const SERVICE_ITEMS = [

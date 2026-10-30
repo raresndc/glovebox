@@ -27,3 +27,13 @@ export function daysUntil(dateString: string) {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.round((date.getTime() - startOfToday.getTime()) / DAY_MS);
 }
+
+/** Adds whole months, keeping the day where the month allows it (Jan 31 + 1 month → Feb 28). */
+export function addMonths(dateString: string, months: number) {
+  const date = parseDate(dateString);
+  if (!date) return null;
+  const target = new Date(date.getFullYear(), date.getMonth() + months, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(date.getDate(), lastDay));
+  return toDateString(target);
+}

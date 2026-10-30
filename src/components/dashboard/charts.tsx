@@ -1,10 +1,18 @@
 import { SymbolView } from 'expo-symbols';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { IconBadge, type IconName } from '@/components/ui/icon';
+import { Surface } from '@/components/ui/surface';
+import { Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { getExpiryStatus } from '@/lib/status';
@@ -15,16 +23,47 @@ const SERIES = {
   dark: ['#3987E5', '#D95926'],
 };
 
+const GROW = { duration: 700, easing: Easing.out(Easing.cubic) };
+
 export function useSeriesColors() {
   return SERIES[useColorScheme() === 'dark' ? 'dark' : 'light'];
 }
 
-export function Card({ title, children }: { title?: string; children: ReactNode }) {
+/** 0 → 1 once after mount, to grow chart marks in. */
+function useGrowIn(delay = 0) {
+  const progress = useSharedValue(0);
+  useEffect(() => {
+    progress.set(withDelay(delay, withTiming(1, GROW)));
+  }, [progress, delay]);
+  return progress;
+}
+
+export function Card({
+  title,
+  icon,
+  action,
+  children,
+}: {
+  title?: string;
+  icon?: IconName;
+  /** Rendered at the end of the title row. */
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const theme = useTheme();
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      {title && <ThemedText type="smallBold">{title}</ThemedText>}
+    <Surface>
+      {title && (
+        <View style={styles.cardHeader}>
+          {icon && <IconBadge name={icon} color={theme.tint} size={28} />}
+          <ThemedText type="smallBold" style={styles.flex}>
+            {title}
+          </ThemedText>
+          {action}
+        </View>
+      )}
       {children}
-    </ThemedView>
+    </Surface>
   );
 }
 
@@ -32,34 +71,44 @@ export function StatTile({
   label,
   value,
   caption,
+  icon,
+  accent,
 }: {
   label: string;
   value: string;
   caption?: string;
+  icon: IconName;
+  accent: string;
 }) {
   return (
-    <ThemedView type="backgroundElement" style={styles.tile}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {label}
-      </ThemedText>
-      <ThemedText style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit>
-        {value}
-      </ThemedText>
-      {caption && (
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
-          {caption}
+    <Surface style={styles.tile}>
+      <IconBadge name={icon} color={accent} size={34} />
+      <View style={styles.tileText}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {label}
         </ThemedText>
-      )}
-    </ThemedView>
+        <ThemedText style={styles.tileValue} numberOfLines={1} adjustsFontSizeToFit>
+          {value}
+        </ThemedText>
+        {caption && (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+            {caption}
+          </ThemedText>
+        )}
+      </View>
+    </Surface>
   );
 }
 
+/** Status icon and label in a pill tinted with the status color. */
 export function StatusLabel({ days }: { days: number }) {
   const status = getExpiryStatus(days);
   return (
-    <View style={styles.status}>
-      <SymbolView name={status.icon} tintColor={status.color} size={14} />
-      <ThemedText type="smallBold">{status.label}</ThemedText>
+    <View style={[styles.status, { backgroundColor: `${status.color}22` }]}>
+      <SymbolView name={status.icon} tintColor={status.color} size={13} />
+      <ThemedText type="smallBold" style={styles.statusText}>
+        {status.label}
+      </ThemedText>
     </View>
   );
 }
@@ -73,11 +122,17 @@ export function ExpiryMeter({
   days,
   expiryDate,
   totalDays,
+  icon,
+  accent,
+  index = 0,
 }: {
   title: string;
   days: number;
   expiryDate: string;
   totalDays?: number;
+  icon: IconName;
+  accent: string;
+  index?: number;
 }) {
   const theme = useTheme();
   const status = getExpiryStatus(days);
@@ -87,33 +142,56 @@ export function ExpiryMeter({
     days < 0
       ? `Expired ${-days} ${days === -1 ? 'day' : 'days'} ago · ${expiryDate}`
       : `${days} ${days === 1 ? 'day' : 'days'} left · until ${expiryDate}`;
+  const progress = useGrowIn(150 + index * 90);
+  const fillStyle = useAnimatedStyle(() => ({ width: `${progress.get() * fraction * 100}%` }));
 
   return (
     <View
       style={styles.meter}
       accessible
       accessibilityLabel={`${title}: ${status.label}, ${caption}`}>
-      <View style={styles.meterHeader}>
-        <ThemedText type="small" style={styles.flex} numberOfLines={1}>
-          {title}
+      <IconBadge name={icon} color={accent} size={36} />
+      <View style={styles.meterBody}>
+        <View style={styles.meterHeader}>
+          <ThemedText type="smallBold" style={styles.flex} numberOfLines={1}>
+            {title}
+          </ThemedText>
+          <StatusLabel days={days} />
+        </View>
+        <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
+          {fraction > 0 && (
+            <Animated.View style={[styles.fill, { backgroundColor: status.color }, fillStyle]} />
+          )}
+        </View>
+        <ThemedText type="small" themeColor="textSecondary">
+          {caption}
         </ThemedText>
-        <StatusLabel days={days} />
       </View>
-      <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>
-        {fraction > 0 && (
-          <View
-            style={[styles.fill, { width: `${fraction * 100}%`, backgroundColor: status.color }]}
-          />
-        )}
-      </View>
-      <ThemedText type="small" themeColor="textSecondary">
-        {caption}
-      </ThemedText>
     </View>
   );
 }
 
 export type MonthValue = { key: string; short: string; long: string; value: number };
+
+function Bar({
+  height,
+  color,
+  dimmed,
+  index,
+}: {
+  height: number;
+  color: string;
+  dimmed: boolean;
+  index: number;
+}) {
+  const progress = useGrowIn(index * 40);
+  const barStyle = useAnimatedStyle(() => ({ height: `${progress.get() * height}%` }));
+  return (
+    <Animated.View
+      style={[styles.bar, { backgroundColor: color, opacity: dimmed ? 0.35 : 1 }, barStyle]}
+    />
+  );
+}
 
 /** Single-series column chart; tap a column to read its value. */
 export function MonthlyBars({
@@ -131,11 +209,13 @@ export function MonthlyBars({
 
   return (
     <View style={styles.chart}>
-      <ThemedText type="small" themeColor={active ? 'text' : 'textSecondary'}>
-        {active ? `${active.long}: ${format(active.value)}` : 'Tap a month to see what you spent'}
-      </ThemedText>
+      <View style={[styles.readout, { backgroundColor: theme.backgroundSelected }]}>
+        <ThemedText type={active ? 'smallBold' : 'small'} themeColor={active ? 'text' : 'textSecondary'}>
+          {active ? `${active.long}: ${format(active.value)}` : 'Tap a month to see what you spent'}
+        </ThemedText>
+      </View>
       <View style={styles.plot}>
-        {data.map((d) => {
+        {data.map((d, index) => {
           const height = max > 0 ? (d.value / max) * 100 : 0;
           const isSelected = d.key === selected;
           return (
@@ -145,17 +225,18 @@ export function MonthlyBars({
               onPress={() => setSelected(isSelected ? null : d.key)}
               accessibilityRole="button"
               accessibilityLabel={`${d.long}: ${format(d.value)}`}>
-              <View style={[styles.barArea, { borderColor: theme.backgroundSelected }]}>
+              <View
+                style={[
+                  styles.barArea,
+                  { borderColor: theme.border },
+                  isSelected && { backgroundColor: theme.backgroundSelected },
+                ]}>
                 {d.value > 0 && (
-                  <View
-                    style={[
-                      styles.bar,
-                      {
-                        height: `${Math.max(height, 2)}%`,
-                        backgroundColor: color,
-                        opacity: selected && !isSelected ? 0.45 : 1,
-                      },
-                    ]}
+                  <Bar
+                    height={Math.max(height, 2)}
+                    color={color}
+                    dimmed={selected !== null && !isSelected}
+                    index={index}
                   />
                 )}
               </View>
@@ -187,12 +268,14 @@ export function SplitBar({
   format: (value: number) => string;
 }) {
   const colors = useSeriesColors();
+  const progress = useGrowIn(300);
+  const growStyle = useAnimatedStyle(() => ({ width: `${progress.get() * 100}%` }));
   const total = parts.reduce((sum, p) => sum + p.value, 0);
   if (total === 0) return null;
 
   return (
     <View style={styles.chart}>
-      <View style={styles.split}>
+      <Animated.View style={[styles.split, growStyle]}>
         {parts.map((p, i) =>
           p.value > 0 ? (
             <View
@@ -201,7 +284,7 @@ export function SplitBar({
             />
           ) : null,
         )}
-      </View>
+      </Animated.View>
       <View style={styles.legend}>
         {parts.map((p, i) => (
           <View key={p.label} style={styles.legendItem}>
@@ -220,33 +303,48 @@ export function SplitBar({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Spacing.four,
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   tile: {
     flexGrow: 1,
-    flexBasis: 140,
+    flexBasis: 150,
+    gap: Spacing.two,
+  },
+  tileText: {
     gap: Spacing.half,
-    padding: Spacing.three,
-    borderRadius: Spacing.four,
   },
   tileValue: {
-    fontSize: 24,
-    lineHeight: 32,
-    fontWeight: 600,
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: 800,
+    letterSpacing: -0.4,
   },
   status: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    borderRadius: Radius.pill,
+  },
+  statusText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
   flex: {
     flex: 1,
   },
   meter: {
-    gap: Spacing.one,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.three,
+  },
+  meterBody: {
+    flex: 1,
+    gap: Spacing.one + Spacing.half,
   },
   meterHeader: {
     flexDirection: 'row',
@@ -265,9 +363,15 @@ const styles = StyleSheet.create({
   chart: {
     gap: Spacing.two,
   },
+  readout: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: Radius.pill,
+  },
   plot: {
     flexDirection: 'row',
-    height: 140,
+    height: 150,
     gap: 2,
   },
   column: {
@@ -278,6 +382,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     borderBottomWidth: 1,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
   },
   bar: {
     borderTopLeftRadius: 4,

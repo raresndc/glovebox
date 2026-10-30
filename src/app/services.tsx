@@ -1,117 +1,113 @@
-import { Platform, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCallback, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { CarSwitcher } from '@/components/garage/car-switcher';
 import { InterventionCard } from '@/components/services/intervention-card';
 import { InterventionForm } from '@/components/services/intervention-form';
-import { formatCost } from '@/components/services/types';
+import { INTERVENTION_KINDS, formatCost } from '@/components/services/types';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { PrimaryButton, SecondaryButton } from '@/components/ui/form';
+import { Icons } from '@/components/ui/icon';
+import { Appear } from '@/components/ui/motion';
+import { Screen } from '@/components/ui/screen';
+import { Banner, EmptyState } from '@/components/ui/surface';
+import { Spacing } from '@/constants/theme';
 import { garageActions, useGarage } from '@/lib/garage';
 
 export default function ServicesScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
   const garage = useGarage();
   const car = garage.activeCar;
   const interventions = garage.interventions.filter((i) => i.carId === car?.id);
+  const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const dismissNotice = useCallback(() => setNotice(null), []);
 
   const sorted = [...interventions].sort((a, b) => b.date.localeCompare(a.date));
   const totalSpent = interventions.reduce((sum, i) => sum + i.cost, 0);
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
-
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      keyboardShouldPersistTaps="handled"
-      automaticallyAdjustKeyboardInsets
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Services</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Log routine services and repairs for your car.
-          </ThemedText>
-        </ThemedView>
+    <Screen
+      eyebrow={car?.plate}
+      title="Services"
+      subtitle="Log routine services and repairs, with what they cost.">
+      <CarSwitcher />
 
-        <CarSwitcher />
+      {notice && <Banner tone="success" text={notice} onDismiss={dismissNotice} />}
 
-        {car && (
-          <>
-            <InterventionForm key={car.id} car={car} onAdd={garageActions.addIntervention} />
+      {car && (
+        <>
+          {adding ? (
+            <Appear>
+              <View style={styles.formHeader}>
+                <ThemedText type="smallBold" style={styles.flex}>
+                  New intervention for {car.plate}
+                </ThemedText>
+                <SecondaryButton label="Cancel" icon={Icons.close} onPress={() => setAdding(false)} />
+              </View>
+              <InterventionForm
+                key={car.id}
+                car={car}
+                onAdd={(intervention) => {
+                  garageActions.addIntervention(intervention);
+                  setAdding(false);
+                  setNotice(
+                    `${INTERVENTION_KINDS[intervention.kind].label} saved · ${formatCost(intervention.cost)}`,
+                  );
+                }}
+              />
+            </Appear>
+          ) : (
+            <PrimaryButton
+              label="Log service or repair"
+              icon={Icons.plus}
+              onPress={() => setAdding(true)}
+            />
+          )}
 
-            <ThemedView style={styles.historyHeader}>
+          {interventions.length > 0 && (
+            <View style={styles.historyHeader}>
               <ThemedText type="smallBold">History ({interventions.length})</ThemedText>
               <ThemedText type="smallBold">Total spent: {formatCost(totalSpent)}</ThemedText>
-            </ThemedView>
+            </View>
+          )}
 
-            {sorted.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
-                No interventions for {car.plate} yet. Add the first one above.
-              </ThemedText>
-            ) : (
-              sorted.map((intervention) => (
-                <InterventionCard
-                  key={intervention.id}
-                  intervention={intervention}
-                  onDelete={() => garageActions.removeIntervention(intervention)}
+          {sorted.length === 0
+            ? !adding && (
+                <EmptyState
+                  icon={INTERVENTION_KINDS.repair.icon}
+                  title="No interventions yet"
+                  text={`Log oil changes, filters and repairs for ${car.plate} to track what the car costs.`}
                 />
-              ))
-            )}
-          </>
-        )}
-      </ThemedView>
-    </ScrollView>
+              )
+            : sorted.map((intervention, index) => (
+                <Appear key={intervention.id} index={index}>
+                  <InterventionCard
+                    intervention={intervention}
+                    onDelete={() => garageActions.removeIntervention(intervention)}
+                  />
+                </Appear>
+              ))}
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
+  formHeader: {
     flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-    width: '100%',
+    alignItems: 'center',
     gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.three,
   },
-  titleContainer: {
-    gap: Spacing.two,
-    paddingVertical: Spacing.four,
+  flex: {
+    flex: 1,
   },
   historyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: Spacing.two,
-    paddingTop: Spacing.three,
-  },
-  empty: {
-    textAlign: 'center',
-    paddingVertical: Spacing.four,
+    paddingTop: Spacing.two,
   },
 });

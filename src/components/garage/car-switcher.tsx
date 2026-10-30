@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Chip, ErrorText, Field, PrimaryButton, formStyles } from '@/components/ui/form';
+import { IconBadge, Icons } from '@/components/ui/icon';
+import { Surface } from '@/components/ui/surface';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { garageActions, useGarage } from '@/lib/garage';
 
 export function AddCarForm({ onDone }: { onDone?: () => void }) {
+  const theme = useTheme();
   const [plate, setPlate] = useState('');
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
@@ -43,8 +47,16 @@ export function AddCarForm({ onDone }: { onDone?: () => void }) {
   };
 
   return (
-    <ThemedView type="backgroundElement" style={formStyles.card}>
-      <ThemedText type="smallBold">Add a car</ThemedText>
+    <Surface>
+      <View style={styles.formHeader}>
+        <IconBadge name={Icons.car} color={theme.tint} />
+        <View style={formStyles.flex}>
+          <ThemedText type="smallBold">Add a car</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Each car is kept separately by its number plate.
+          </ThemedText>
+        </View>
+      </View>
       <Field
         label="Number plate"
         value={plate}
@@ -78,8 +90,8 @@ export function AddCarForm({ onDone }: { onDone?: () => void }) {
         maxLength={4}
       />
       <ErrorText>{error}</ErrorText>
-      <PrimaryButton label="Add car" onPress={submit} />
-    </ThemedView>
+      <PrimaryButton label="Add car" icon={Icons.plus} onPress={submit} />
+    </Surface>
   );
 }
 
@@ -100,17 +112,23 @@ export function CarSwitcher() {
           <Chip
             key={car.id}
             label={car.plate}
+            icon={Icons.car}
             selected={car.id === activeCar?.id}
             onPress={() => garageActions.selectCar(car.id)}
           />
         ))}
         <Chip
-          label={adding ? 'Cancel' : '+ Add car'}
+          label={adding ? 'Cancel' : 'Add car'}
+          icon={adding ? Icons.close : Icons.plus}
           selected={false}
           onPress={() => setAdding((a) => !a)}
         />
       </ScrollView>
-      {adding && <AddCarForm onDone={() => setAdding(false)} />}
+      {adding && (
+        <Animated.View entering={FadeInDown.springify().damping(18)} exiting={FadeOutUp.duration(150)}>
+          <AddCarForm onDone={() => setAdding(false)} />
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -121,5 +139,10 @@ const styles = StyleSheet.create({
   },
   chips: {
     gap: Spacing.two,
+  },
+  formHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
   },
 });

@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Platform, StyleSheet, Switch, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { AttachmentPicker } from '@/components/ui/attachments';
 import { Chip, ErrorText, Field, PrimaryButton, formStyles } from '@/components/ui/form';
-import { Spacing } from '@/constants/theme';
+import { Icons } from '@/components/ui/icon';
+import { Surface } from '@/components/ui/surface';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { deleteAttachment, type Attachment } from '@/lib/attachments';
-import { daysUntil, parseDate } from '@/lib/dates';
+import { addMonths, daysUntil, parseDate, today } from '@/lib/dates';
 import { newId, type Car } from '@/lib/garage';
 import { REMINDER_DAYS_BEFORE, scheduleExpiryReminders } from '@/lib/reminders';
 
@@ -15,12 +17,21 @@ import { DOCUMENT_KINDS, type CarDocument, type DocumentKind } from './types';
 
 const remindersSupported = Platform.OS !== 'web';
 
+/** One-tap validity periods, counted from the start date (or today). */
+const VALIDITY_SHORTCUTS = [
+  { label: '1 month', months: 1 },
+  { label: '6 months', months: 6 },
+  { label: '1 year', months: 12 },
+];
+
 type Props = {
   car: Car;
-  onAdd: (document: CarDocument) => void;
+  /** `notice` explains anything that didn't go as planned, e.g. reminders that couldn't be set. */
+  onAdd: (document: CarDocument, notice: string | null) => void;
 };
 
 export function DocumentForm({ car, onAdd }: Props) {
+  const theme = useTheme();
   const [kind, setKind] = useState<DocumentKind>('insurance');
   const [name, setName] = useState('');
   const [number, setNumber] = useState('');
@@ -31,7 +42,6 @@ export function DocumentForm({ car, onAdd }: Props) {
   const [files, setFiles] = useState<Attachment[]>([]);
   const [remind, setRemind] = useState(DOCUMENT_KINDS.insurance.tracksExpiry);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const kindInfo = DOCUMENT_KINDS[kind];
@@ -42,7 +52,7 @@ export function DocumentForm({ car, onAdd }: Props) {
   };
 
   const submit = async () => {
-    setInfo(null);
+    let notice: string | null = null;
     const finalName = name.trim() || kindInfo.label;
     const expiry = expiryDate.trim();
 
@@ -78,12 +88,12 @@ export function DocumentForm({ car, onAdd }: Props) {
         });
         reminderIds = result.ids;
         if (result.status === 'denied') {
-          setInfo('Saved, but notifications are off. Turn them on in Settings to get reminders.');
+          notice = 'Saved, but notifications are off. Turn them on in Settings to get reminders.';
         } else if (result.status === 'nothing-upcoming') {
-          setInfo('Saved. It expires too soon to schedule any reminders.');
+          notice = 'Saved. It expires too soon to schedule any reminders.';
         }
       } catch {
-        setInfo("Saved, but reminders couldn't be scheduled.");
+        notice = "Saved, but reminders couldn't be scheduled.";
       }
     }
 
@@ -99,7 +109,7 @@ export function DocumentForm({ car, onAdd }: Props) {
       notes: notes.trim() || undefined,
       files,
       reminderIds,
-    });
+    }, notice);
 
     setName('');
     setNumber('');
@@ -112,18 +122,25 @@ export function DocumentForm({ car, onAdd }: Props) {
   };
 
   const expiryDays = daysUntil(expiryDate);
+  const periodStart = parseDate(startDate) ? startDate.trim() : today();
 
   return (
-    <ThemedView type="backgroundElement" style={formStyles.card}>
-      <View style={formStyles.chips}>
-        {(Object.keys(DOCUMENT_KINDS) as DocumentKind[]).map((k) => (
-          <Chip
-            key={k}
-            label={DOCUMENT_KINDS[k].label}
-            selected={kind === k}
-            onPress={() => selectKind(k)}
-          />
-        ))}
+    <Surface>
+      <View style={formStyles.field}>
+        <ThemedText type="smallBold" themeColor="textSecondary">
+          Type
+        </ThemedText>
+        <View style={formStyles.chips}>
+          {(Object.keys(DOCUMENT_KINDS) as DocumentKind[]).map((k) => (
+            <Chip
+              key={k}
+              label={DOCUMENT_KINDS[k].label}
+              icon={DOCUMENT_KINDS[k].icon}
+              selected={kind === k}
+              onPress={() => selectKind(k)}
+            />
+          ))}
+        </View>
       </View>
 
       <Field
@@ -157,8 +174,11 @@ export function DocumentForm({ car, onAdd }: Props) {
           style={formStyles.flex}
           value={startDate}
           onChangeText={setStartDate}
-          placeholder="YYYY-MM-DD"
-        />
+          placeholder="YYYY-MM-DD">
+          <View style={formStyles.chips}>
+            <Chip small label="Today" selected={startDate === today()} onPress={() => setStartDate(today())} />
+          </View>
+        </Field>
         <Field
           label={kindInfo.tracksExpiry ? 'Expires on' : 'Expires on (optional)'}
           style={formStyles.flex}
@@ -168,8 +188,26 @@ export function DocumentForm({ car, onAdd }: Props) {
         />
       </View>
 
+      <View style={formStyles.chips}>
+        <ThemedText type="small" themeColor="textSecondary">
+          Valid for
+        </ThemedText>
+        {VALIDITY_SHORTCUTS.map(({ label, months }) => {
+          const value = addMonths(periodStart, months);
+          return (
+            <Chip
+              key={label}
+              small
+              label={label}
+              selected={value !== null && expiryDate === value}
+              onPress={() => value && setExpiryDate(value)}
+            />
+          );
+        })}
+      </View>
+
       {remindersSupported && (
-        <View style={styles.reminderRow}>
+        <View style={[styles.reminderRow, { backgroundColor: theme.background }]}>
           <View style={formStyles.flex}>
             <ThemedText type="smallBold">Remind me before it expires</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
@@ -177,7 +215,11 @@ export function DocumentForm({ car, onAdd }: Props) {
               {expiryDays !== null && expiryDays >= 0 ? ` · expires in ${expiryDays} days` : ''}
             </ThemedText>
           </View>
-          <Switch value={remind} onValueChange={setRemind} />
+          <Switch
+            value={remind}
+            onValueChange={setRemind}
+            trackColor={{ true: theme.tint, false: theme.backgroundSelected }}
+          />
         </View>
       )}
 
@@ -200,17 +242,13 @@ export function DocumentForm({ car, onAdd }: Props) {
       />
 
       <ErrorText>{error}</ErrorText>
-      {info && (
-        <ThemedText type="small" themeColor="textSecondary">
-          {info}
-        </ThemedText>
-      )}
       <PrimaryButton
-        label={saving ? 'Saving…' : 'Add document'}
+        label={saving ? 'Saving…' : 'Save document'}
+        icon={Icons.check}
         onPress={submit}
         disabled={saving}
       />
-    </ThemedView>
+    </Surface>
   );
 }
 
@@ -219,5 +257,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
+    padding: Spacing.three,
+    borderRadius: Radius.medium,
   },
 });

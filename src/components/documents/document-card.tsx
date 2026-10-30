@@ -1,21 +1,17 @@
 import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
+import { StatusLabel } from '@/components/dashboard/charts';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { AttachmentList } from '@/components/ui/attachments';
-import { IconButton } from '@/components/ui/form';
-import { Spacing } from '@/constants/theme';
+import { DeleteButton } from '@/components/ui/form';
+import { IconBadge, Icons } from '@/components/ui/icon';
+import { Surface } from '@/components/ui/surface';
+import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { daysUntil } from '@/lib/dates';
-import { getExpiryStatus } from '@/lib/status';
 
 import { DOCUMENT_KINDS, type CarDocument } from './types';
-
-function getStatus(expiryDate?: string) {
-  const days = expiryDate ? daysUntil(expiryDate) : null;
-  return days === null ? null : getExpiryStatus(days);
-}
 
 type Props = {
   document: CarDocument;
@@ -25,7 +21,8 @@ type Props = {
 export function DocumentCard({ document, onDelete }: Props) {
   const theme = useTheme();
   const { kind, name, number, issuer, startDate, expiryDate, notes, files, reminderIds } = document;
-  const status = getStatus(expiryDate);
+  const kindInfo = DOCUMENT_KINDS[kind];
+  const days = expiryDate ? daysUntil(expiryDate) : null;
   const details = [number, issuer].filter(Boolean).join(' · ');
   const validity =
     startDate && expiryDate
@@ -37,46 +34,38 @@ export function DocumentCard({ document, onDelete }: Props) {
           : 'No expiry date';
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
+    <Surface style={styles.card}>
       <View style={styles.header}>
+        <IconBadge name={kindInfo.icon} color={kindInfo.accent} size={44} />
         <View style={styles.headerText}>
-          <ThemedText type="code" themeColor="textSecondary" style={styles.kind}>
-            {DOCUMENT_KINDS[kind].label}
+          <ThemedText type="small" themeColor="textSecondary" style={styles.kind}>
+            {kindInfo.label}
           </ThemedText>
-          <ThemedText type="default">{name}</ThemedText>
+          <ThemedText type="default" style={styles.name}>
+            {name}
+          </ThemedText>
           {details ? (
             <ThemedText type="small" themeColor="textSecondary">
               {details}
             </ThemedText>
           ) : null}
         </View>
-        {status && (
-          <View style={[styles.badge, { borderColor: status.color }]}>
-            <SymbolView name={status.icon} tintColor={status.color} size={12} />
-            <ThemedText type="smallBold">{status.label}</ThemedText>
-          </View>
-        )}
-        <IconButton
-          name={{ ios: 'trash', android: 'delete', web: 'delete' }}
-          label={`Delete ${name}`}
-          onPress={onDelete}
-        />
+        <DeleteButton label={`Delete ${name}`} onConfirm={onDelete} />
       </View>
 
-      <View style={styles.footer}>
-        <ThemedText type="small">{validity}</ThemedText>
-        {reminderIds.length > 0 && (
-          <View style={styles.reminders} accessibilityLabel="Reminders on">
-            <SymbolView
-              name={{ ios: 'bell.fill', android: 'notifications', web: 'notifications' }}
-              tintColor={theme.textSecondary}
-              size={12}
-            />
-            <ThemedText type="small" themeColor="textSecondary">
-              Reminders on
-            </ThemedText>
-          </View>
-        )}
+      <View style={[styles.footer, { backgroundColor: theme.background }]}>
+        <View style={styles.meta}>
+          <SymbolView name={Icons.calendar} tintColor={theme.textSecondary} size={14} />
+          <ThemedText type="small">{validity}</ThemedText>
+        </View>
+        <View style={styles.meta}>
+          {reminderIds.length > 0 && (
+            <View accessibilityLabel="Reminders on">
+              <SymbolView name={Icons.bell} tintColor={theme.tint} size={14} />
+            </View>
+          )}
+          {days !== null && <StatusLabel days={days} />}
+        </View>
       </View>
 
       {notes && (
@@ -85,45 +74,44 @@ export function DocumentCard({ document, onDelete }: Props) {
         </ThemedText>
       )}
       <AttachmentList attachments={files} />
-    </ThemedView>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Spacing.four,
+    gap: Spacing.three,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: Spacing.three,
   },
   headerText: {
     flex: 1,
-    gap: Spacing.half,
   },
   kind: {
     textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontSize: 11,
+    lineHeight: 16,
   },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    borderWidth: 1,
-    borderRadius: Spacing.five,
-    paddingHorizontal: Spacing.two,
+  name: {
+    fontWeight: 700,
   },
   footer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Radius.medium,
   },
-  reminders: {
+  meta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
+    gap: Spacing.two,
   },
 });
